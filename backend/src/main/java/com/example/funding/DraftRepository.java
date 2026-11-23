@@ -2,6 +2,9 @@ package com.example.funding;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 @Repository
 public class DraftRepository {
@@ -29,5 +32,71 @@ public class DraftRepository {
         );
 
         return count != null && count > 0;
+    }
+    public int updateOwnDraft(long projectId, long draftId, long currentUserId,
+                              String purpose, long requestedFen) {
+        String sql = """
+            UPDATE funding_application a
+            JOIN project_member m
+              ON m.project_id = a.project_id
+             AND m.user_id = a.applicant_id
+            SET a.purpose = ?,
+                a.requested_fen = ?
+            WHERE a.id = ?
+              AND a.project_id = ?
+              AND a.applicant_id = ?
+              AND a.status = 'DRAFT'
+            """;
+
+        return jdbcTemplate.update(
+                sql,
+                purpose,
+                requestedFen,
+                draftId,
+                projectId,
+                currentUserId
+        );
+    }
+    public record ApplicationSummary(
+            long applicationId, long applicantId, String purpose,
+            long requestedFen, String status
+    ) {}
+
+    public List<ApplicationSummary> findSubmittedApplicationsByProject(long projectId) {
+        String sql = """
+                SELECT id, applicant_id, purpose, requested_fen, status
+                FROM funding_application
+                WHERE project_id = ?
+                  AND status <> 'DRAFT'
+                ORDER BY id
+                """;
+
+        return jdbcTemplate.query(sql, this::mapApplicationSummary, projectId);
+    }
+    public List<ApplicationSummary> findPendingApplicationsForTeacher(
+            long projectId, long currentUserId) {
+        String sql = """
+            SELECT id, applicant_id, purpose, requested_fen, status
+            FROM funding_application
+            WHERE project_id = ?
+              AND status = 'PENDING_L1'
+              AND applicant_id <> ?
+            ORDER BY id
+            """;
+
+        return jdbcTemplate.query(
+                sql, this::mapApplicationSummary, projectId, currentUserId
+        );
+    }
+
+    private ApplicationSummary mapApplicationSummary(ResultSet rs, int rowNum)
+            throws SQLException {
+        return new ApplicationSummary(
+                rs.getLong("id"),
+                rs.getLong("applicant_id"),
+                rs.getString("purpose"),
+                rs.getLong("requested_fen"),
+                rs.getString("status")
+        );
     }
 }

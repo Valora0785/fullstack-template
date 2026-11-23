@@ -12,6 +12,32 @@ public class DraftService {
 
     public int saveDraft(long projectId, long currentUserId,
                          String purpose, long requestedFen) {
+        validateDraftFields(projectId, currentUserId, purpose, requestedFen);
+
+        if (!draftRepository.isProjectMember(projectId, currentUserId)) {
+            throw new ProjectMembershipRequiredException();
+        }
+
+        return draftRepository.insertDraft(
+                projectId, currentUserId, purpose, requestedFen
+        );
+    }
+
+    public int updateOwnDraft(long projectId, long draftId, long currentUserId,
+                              String purpose, long requestedFen) {
+        validateDraftFields(projectId, currentUserId, purpose, requestedFen);
+
+        if (draftId <= 0) {
+            throw new IllegalArgumentException("草稿编号必须为正数");
+        }
+
+        return draftRepository.updateOwnDraft(
+                projectId, draftId, currentUserId, purpose, requestedFen
+        );
+    }
+
+    private void validateDraftFields(long projectId, long currentUserId,
+                                     String purpose, long requestedFen) {
         if (projectId <= 0 || currentUserId <= 0) {
             throw new IllegalArgumentException("项目和用户编号必须为正数");
         }
@@ -27,13 +53,5 @@ public class DraftService {
         if (requestedFen < 0) {
             throw new IllegalArgumentException("草稿金额不能为负数");
         }
-
-        if (!draftRepository.isProjectMember(projectId, currentUserId)) {
-            throw new IllegalStateException("当前用户未加入该项目");
-        }
-
-        return draftRepository.insertDraft(
-                projectId, currentUserId, purpose, requestedFen
-        );
     }
 }
