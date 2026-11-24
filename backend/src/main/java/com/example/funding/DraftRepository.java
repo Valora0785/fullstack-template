@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 @Repository
 public class DraftRepository {
@@ -57,6 +58,43 @@ public class DraftRepository {
                 currentUserId
         );
     }
+
+    public Optional<ApplicationSummary> findOwnDraftForUpdate(
+            long projectId, long draftId, long currentUserId) {
+        String sql = """
+            SELECT a.id, a.applicant_id, a.purpose, a.requested_fen, a.status
+            FROM funding_application a
+            JOIN project_member m
+              ON m.project_id = a.project_id
+             AND m.user_id = a.applicant_id
+            WHERE a.project_id = ?
+              AND a.id = ?
+              AND a.applicant_id = ?
+              AND a.status = 'DRAFT'
+            FOR UPDATE
+            """;
+
+        return jdbcTemplate.query(
+                sql, this::mapApplicationSummary, projectId, draftId, currentUserId
+        ).stream().findFirst();
+    }
+
+    public int markOwnDraftPending(long projectId, long draftId, long currentUserId) {
+        String sql = """
+            UPDATE funding_application a
+            JOIN project_member m
+              ON m.project_id = a.project_id
+             AND m.user_id = a.applicant_id
+            SET a.status = 'PENDING_L1'
+            WHERE a.project_id = ?
+              AND a.id = ?
+              AND a.applicant_id = ?
+              AND a.status = 'DRAFT'
+            """;
+
+        return jdbcTemplate.update(sql, projectId, draftId, currentUserId);
+    }
+
     public record ApplicationSummary(
             long applicationId, long applicantId, String purpose,
             long requestedFen, String status

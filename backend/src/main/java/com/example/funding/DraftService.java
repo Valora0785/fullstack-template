@@ -1,13 +1,16 @@
 package com.example.funding;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DraftService {
     private final DraftRepository draftRepository;
+    private final ProjectRepository projectRepository;
 
-    public DraftService(DraftRepository draftRepository) {
+    public DraftService(DraftRepository draftRepository, ProjectRepository projectRepository) {
         this.draftRepository = draftRepository;
+        this.projectRepository = projectRepository;
     }
 
     public int saveDraft(long projectId, long currentUserId,
@@ -34,6 +37,41 @@ public class DraftService {
         return draftRepository.updateOwnDraft(
                 projectId, draftId, currentUserId, purpose, requestedFen
         );
+    }
+
+    public enum SubmitResult {
+        SUBMITTED,
+        DRAFT_NOT_FOUND,
+        INSUFFICIENT_BUDGET
+    }
+
+    @Transactional
+    public SubmitResult submitOwnDraft(long projectId, long draftId, long currentUserId) {
+        if (projectId <= 0 || draftId <= 0 || currentUserId <= 0) {
+            throw new IllegalArgumentException("项目、草稿和用户编号必须为正数");
+        }
+
+        var lockedDraft = draftRepository.findOwnDraftForUpdate(projectId, draftId, currentUserId);
+        if (lockedDraft.isEmpty()) {
+            return SubmitResult.DRAFT_NOT_FOUND;
+        }
+
+        var draft = lockedDraft.get();
+        if (draft.purpose().isBlank() || draft.requestedFen() <= 0) {
+            throw new IllegalArgumentException("提交时用途不能为空，申请金额必须大于 0");
+        }
+
+        int frozenRows = projectRepository.freezeBudget(projectId, draft.requestedFen());
+        if (frozenRows == 0) {
+            return SubmitResult.INSUFFICIENT_BUDGET;
+        }
+
+        int updatedRows = draftRepository.markOwnDraftPending(projectId, draftId, currentUserId);
+        if (updatedRows != 1) {
+            throw new IllegalStateException("提交草稿时预期更新一行");
+        }
+
+        return SubmitResult.SUBMITTED;
     }
 
     private void validateDraftFields(long projectId, long currentUserId,
