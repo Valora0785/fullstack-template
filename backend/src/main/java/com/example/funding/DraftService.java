@@ -92,4 +92,29 @@ public class DraftService {
             throw new IllegalArgumentException("草稿金额不能为负数");
         }
     }
+
+    public enum ApprovalResult {
+        APPROVED,
+        FORBIDDEN,
+        APPLICATION_NOT_FOUND
+    }
+
+    public ApprovalResult approveApplication(long projectId, long applicationId, long teacherId) {
+        if (projectId <= 0 || applicationId <= 0 || teacherId <= 0) {
+            throw new IllegalArgumentException("项目、申请和教师编号必须为正数");
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, teacherId, "TEACHER")) {
+            return ApprovalResult.FORBIDDEN;
+        }
+
+        int updatedRows = draftRepository.approvePendingApplication(
+                projectId, applicationId, teacherId
+        );
+        if (updatedRows == 0) {
+            return ApprovalResult.APPLICATION_NOT_FOUND;
+        }
+
+        return ApprovalResult.APPROVED;
+    }
 }

@@ -95,6 +95,24 @@ public class DraftRepository {
         return jdbcTemplate.update(sql, projectId, draftId, currentUserId);
     }
 
+    public int approvePendingApplication(long projectId, long applicationId, long teacherId) {
+        String sql = """
+            UPDATE funding_application a
+            JOIN project_role_assignment r
+              ON r.project_id = a.project_id
+             AND r.user_id = ?
+             AND r.role_code = 'TEACHER'
+            SET a.status = 'APPROVED',
+                a.approved_fen = a.requested_fen
+            WHERE a.project_id = ?
+              AND a.id = ?
+              AND a.status = 'PENDING_L1'
+              AND a.applicant_id <> ?
+            """;
+
+        return jdbcTemplate.update(sql, teacherId, projectId, applicationId, teacherId);
+    }
+
     public record ApplicationSummary(
             long applicationId, long applicantId, String purpose,
             long requestedFen, String status
