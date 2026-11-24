@@ -89,4 +89,33 @@ public class DraftController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/api/projects/{projectId}/drafts/{draftId}/submit")
+    public ResponseEntity<Void> submitDraft(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("draftId") long draftId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        if (session == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long currentUserId = (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        DraftService.SubmitResult result;
+        try {
+            result = draftService.submitOwnDraft(projectId, draftId, currentUserId);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return switch (result) {
+            case SUBMITTED -> ResponseEntity.noContent().build();
+            case DRAFT_NOT_FOUND -> ResponseEntity.notFound().build();
+            case INSUFFICIENT_BUDGET -> ResponseEntity.status(409).build();
+        };
+    }
 }

@@ -60,5 +60,19 @@ public class ProjectRepository {
         );
         return count != null && count > 0;
     }
+    public int freezeBudget(long projectId, long amountFen) {
+        if (amountFen <= 0) {
+            throw new IllegalArgumentException("冻结金额必须大于 0");
+        }
 
+        String sql = """
+            UPDATE research_project
+            SET available_fen = available_fen - ?,
+                frozen_fen = frozen_fen + ?
+            WHERE id = ?
+              AND available_fen >= ?
+            """;
+
+        return jdbcTemplate.update(sql, amountFen, amountFen, projectId, amountFen);
+    }
 }
