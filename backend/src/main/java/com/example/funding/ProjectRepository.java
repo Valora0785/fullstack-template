@@ -60,6 +60,22 @@ public class ProjectRepository {
         );
         return count != null && count > 0;
     }
+
+    public boolean hasEligibleApprover(long projectId, long applicantId) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM project_role_assignment
+            WHERE project_id = ?
+              AND role_code = 'TEACHER'
+              AND user_id <> ?
+            """;
+
+        Long count = jdbcTemplate.queryForObject(
+                sql, Long.class, projectId, applicantId
+        );
+        return count != null && count > 0;
+    }
+
     public int freezeBudget(long projectId, long amountFen) {
         if (amountFen <= 0) {
             throw new IllegalArgumentException("冻结金额必须大于 0");
