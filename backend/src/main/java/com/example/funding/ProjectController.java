@@ -8,18 +8,22 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import com.example.funding.DraftRepository.ApplicationSummary;
 import java.util.List;
+import org.springframework.web.bind.annotation.PostMapping;
 
 @RestController
 public class ProjectController {
     private final ProjectRepository projectRepository;
     private final DraftRepository draftRepository;
+    private final DraftService draftService;
 
     public ProjectController(
-            ProjectRepository projectRepository, DraftRepository draftRepository) {
+            ProjectRepository projectRepository,
+            DraftRepository draftRepository,
+            DraftService draftService) {
         this.projectRepository = projectRepository;
         this.draftRepository = draftRepository;
+        this.draftService = draftService;
     }
-
     @GetMapping("/api/projects/{projectId}/budget")
     public ResponseEntity<ProjectBudget> getBudget(
             @PathVariable("projectId") long projectId,
@@ -63,5 +67,30 @@ public class ProjectController {
                 projectId, currentUserId
         );
         return ResponseEntity.ok(applications);
+    }
+
+    @PostMapping("/api/projects/{projectId}/applications/{applicationId}/approve")
+    public ResponseEntity<Void> approveApplication(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("applicationId") long applicationId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        DraftService.ApprovalResult result;
+        try {
+            result = draftService.approveApplication(projectId, applicationId, currentUserId);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return switch (result) {
+            case APPROVED -> ResponseEntity.noContent().build();
+            case FORBIDDEN -> ResponseEntity.status(403).build();
+            case APPLICATION_NOT_FOUND -> ResponseEntity.notFound().build();
+        };
     }
 }
