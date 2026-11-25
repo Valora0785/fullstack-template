@@ -3,6 +3,7 @@ package com.example.funding;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import java.util.List;
 
 @Repository
 public class ProjectRepository {
@@ -46,6 +47,28 @@ public class ProjectRepository {
                 currentUserId
         ).stream().findFirst();
     }
+
+    public record ProjectMember(long userId, String username) {}
+
+    public List<ProjectMember> findProjectMembers(long projectId) {
+        String sql = """
+            SELECT m.user_id, u.username
+            FROM project_member m
+            JOIN app_user u ON u.id = m.user_id
+            WHERE m.project_id = ?
+            ORDER BY m.user_id
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new ProjectMember(
+                        rs.getLong("user_id"),
+                        rs.getString("username")
+                ),
+                projectId
+        );
+    }
+
     public boolean hasProjectRole(long projectId, long userId, String roleCode) {
         String sql = """
             SELECT COUNT(*)

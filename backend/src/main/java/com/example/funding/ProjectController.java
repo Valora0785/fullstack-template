@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.funding.DraftRepository.ApplicationSummary;
 import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
+import com.example.funding.ProjectRepository.ProjectMember;
 
 @RestController
 public class ProjectController {
@@ -45,6 +46,24 @@ public class ProjectController {
 
         return ResponseEntity.ok(budget.get());
     }
+
+    @GetMapping("/api/projects/{projectId}/members")
+    public ResponseEntity<List<ProjectMember>> getProjectMembers(
+            @PathVariable("projectId") long projectId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, currentUserId, "ADMIN")) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(projectRepository.findProjectMembers(projectId));
+    }
+
     @GetMapping("/api/projects/{projectId}/applications/pending")
     public ResponseEntity<List<ApplicationSummary>> getPendingApplications(
             @PathVariable("projectId") long projectId,
