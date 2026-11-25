@@ -90,8 +90,10 @@ public class DraftController {
         return ResponseEntity.noContent().build();
     }
 
+    public record SubmitError(String code) {}
+
     @PostMapping("/api/projects/{projectId}/drafts/{draftId}/submit")
-    public ResponseEntity<Void> submitDraft(
+    public ResponseEntity<SubmitError> submitDraft(
             @PathVariable("projectId") long projectId,
             @PathVariable("draftId") long draftId,
             HttpServletRequest request) {
@@ -115,7 +117,10 @@ public class DraftController {
         return switch (result) {
             case SUBMITTED -> ResponseEntity.noContent().build();
             case DRAFT_NOT_FOUND -> ResponseEntity.notFound().build();
-            case INSUFFICIENT_BUDGET -> ResponseEntity.status(409).build();
+            case INSUFFICIENT_BUDGET -> ResponseEntity.status(409)
+                    .body(new SubmitError("INSUFFICIENT_BUDGET"));
+            case NO_ELIGIBLE_APPROVER -> ResponseEntity.status(409)
+                    .body(new SubmitError("NO_ELIGIBLE_APPROVER"));
         };
     }
 }

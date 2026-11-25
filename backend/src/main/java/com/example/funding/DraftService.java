@@ -42,7 +42,8 @@ public class DraftService {
     public enum SubmitResult {
         SUBMITTED,
         DRAFT_NOT_FOUND,
-        INSUFFICIENT_BUDGET
+        INSUFFICIENT_BUDGET,
+        NO_ELIGIBLE_APPROVER
     }
 
     @Transactional
@@ -59,6 +60,10 @@ public class DraftService {
         var draft = lockedDraft.get();
         if (draft.purpose().isBlank() || draft.requestedFen() <= 0) {
             throw new IllegalArgumentException("提交时用途不能为空，申请金额必须大于 0");
+        }
+
+        if (!projectRepository.hasEligibleApprover(projectId, currentUserId)) {
+            return SubmitResult.NO_ELIGIBLE_APPROVER;
         }
 
         int frozenRows = projectRepository.freezeBudget(projectId, draft.requestedFen());
