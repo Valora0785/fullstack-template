@@ -137,4 +137,21 @@ public class ProjectRepository {
 
         return jdbcTemplate.update(sql, amountFen, amountFen, projectId, amountFen);
     }
+
+    public int releaseFrozenBudget(long projectId, long amountFen) {
+        if (amountFen <= 0) {
+            throw new IllegalArgumentException("退回金额必须大于 0");
+        }
+
+        String sql = """
+            UPDATE research_project
+            SET available_fen = available_fen + ?,
+                frozen_fen = frozen_fen - ?
+            WHERE id = ?
+              AND frozen_fen >= ?
+            """;
+
+        return jdbcTemplate.update(sql, amountFen, amountFen, projectId, amountFen);
+    }
+
 }

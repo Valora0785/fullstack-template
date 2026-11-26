@@ -104,7 +104,14 @@ public class DraftService {
         APPLICATION_NOT_FOUND
     }
 
+    @Transactional
     public ApprovalResult approveApplication(long projectId, long applicationId, long teacherId) {
+        return approveApplication(projectId, applicationId, teacherId, null);
+    }
+
+    @Transactional
+    public ApprovalResult approveApplication(
+            long projectId, long applicationId, long teacherId, Long approvedFen) {
         if (projectId <= 0 || applicationId <= 0 || teacherId <= 0) {
             throw new IllegalArgumentException("项目、申请和教师编号必须为正数");
         }
@@ -113,11 +120,29 @@ public class DraftService {
             return ApprovalResult.FORBIDDEN;
         }
 
-        int updatedRows = draftRepository.approvePendingApplication(
+        var requestedAmount = draftRepository.findPendingRequestedFenForUpdate(
                 projectId, applicationId, teacherId
+        );
+        if (requestedAmount.isEmpty()) {
+            return ApprovalResult.APPLICATION_NOT_FOUND;
+        }
+
+        long requestedFen = requestedAmount.get();
+        long effectiveApprovedFen = approvedFen == null ? requestedFen : approvedFen;
+        if (effectiveApprovedFen <= 0 || effectiveApprovedFen > requestedFen) {
+            throw new IllegalArgumentException("批准金额必须大于 0 且不能超过申请金额");
+        }
+
+        int updatedRows = draftRepository.approvePendingApplication(
+                projectId, applicationId, teacherId, effectiveApprovedFen
         );
         if (updatedRows == 0) {
             return ApprovalResult.APPLICATION_NOT_FOUND;
+        }
+
+        long releaseFen = requestedFen - effectiveApprovedFen;
+        if (releaseFen > 0 && projectRepository.releaseFrozenBudget(projectId, releaseFen) != 1) {
+            throw new IllegalStateException("退回冻结预算失败");
         }
 
         return ApprovalResult.APPROVED;

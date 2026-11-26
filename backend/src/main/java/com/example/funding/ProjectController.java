@@ -158,10 +158,13 @@ public class ProjectController {
         }
     }
 
+    public record ApproveApplicationRequest(Long approvedFen) {}
+
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/approve")
     public ResponseEntity<Void> approveApplication(
             @PathVariable("projectId") long projectId,
             @PathVariable("applicationId") long applicationId,
+            @RequestBody(required = false) ApproveApplicationRequest body,
             HttpServletRequest request) {
         var session = request.getSession(false);
         Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
@@ -170,8 +173,14 @@ public class ProjectController {
         }
 
         DraftService.ApprovalResult result;
+        if (body != null && body.approvedFen() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Long approvedFen = body == null ? null : body.approvedFen();
         try {
-            result = draftService.approveApplication(projectId, applicationId, currentUserId);
+            result = draftService.approveApplication(
+                    projectId, applicationId, currentUserId, approvedFen
+            );
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
