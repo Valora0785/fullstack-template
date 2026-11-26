@@ -80,6 +80,18 @@ public class ProjectRepository {
         return jdbcTemplate.update(sql, projectId, memberUserId);
     }
 
+    public int assignProjectRole(long projectId, long memberUserId, String roleCode) {
+        String sql = """
+        INSERT INTO project_role_assignment (project_id, user_id, role_code)
+        SELECT pm.project_id, pm.user_id, ?
+        FROM project_member AS pm
+        WHERE pm.project_id = ?
+          AND pm.user_id = ?
+        """;
+
+        return jdbcTemplate.update(sql, roleCode, projectId, memberUserId);
+    }
+
     public boolean hasProjectRole(long projectId, long userId, String roleCode) {
         String sql = """
             SELECT COUNT(*)
