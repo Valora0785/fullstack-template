@@ -147,4 +147,47 @@ public class DraftService {
 
         return ApprovalResult.APPROVED;
     }
+
+    public enum SettlementResult {
+        SETTLED,
+        FORBIDDEN,
+        APPLICATION_NOT_FOUND
+    }
+
+    @Transactional
+    public SettlementResult settleApplication(
+            long projectId, long applicationId, long financeUserId, long settledFen) {
+        if (projectId <= 0 || applicationId <= 0 || financeUserId <= 0 || settledFen < 0) {
+            throw new IllegalArgumentException("编号必须为正数，结算金额不能为负数");
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, financeUserId, "FINANCE")) {
+            return SettlementResult.FORBIDDEN;
+        }
+
+        var approvedAmount = draftRepository.findApprovedFenForUpdate(projectId, applicationId);
+        if (approvedAmount.isEmpty()) {
+            return SettlementResult.APPLICATION_NOT_FOUND;
+        }
+
+        long approvedFen = approvedAmount.get();
+        if (settledFen > approvedFen) {
+            throw new IllegalArgumentException("结算金额不能超过批准金额");
+        }
+
+        int updatedRows = draftRepository.settleApprovedApplication(
+                projectId, applicationId, financeUserId, settledFen
+        );
+        if (updatedRows == 0) {
+            return SettlementResult.APPLICATION_NOT_FOUND;
+        }
+
+
+        if (projectRepository.settleFrozenBudget(projectId, approvedFen, settledFen) != 1) {
+            throw new IllegalStateException("结算预算失败");
+        }
+
+        return SettlementResult.SETTLED;
+    }
+
 }

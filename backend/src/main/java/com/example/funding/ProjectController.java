@@ -159,6 +159,7 @@ public class ProjectController {
     }
 
     public record ApproveApplicationRequest(Long approvedFen) {}
+    public record SettleApplicationRequest(Long settledFen) {}
 
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/approve")
     public ResponseEntity<Void> approveApplication(
@@ -191,4 +192,37 @@ public class ProjectController {
             case APPLICATION_NOT_FOUND -> ResponseEntity.notFound().build();
         };
     }
+
+    @PostMapping("/api/projects/{projectId}/applications/{applicationId}/settle")
+    public ResponseEntity<Void> settleApplication(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("applicationId") long applicationId,
+            @RequestBody(required = false) SettleApplicationRequest body,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (body == null || body.settledFen() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        DraftService.SettlementResult result;
+        try {
+            result = draftService.settleApplication(
+                    projectId, applicationId, currentUserId, body.settledFen()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return switch (result) {
+            case SETTLED -> ResponseEntity.noContent().build();
+            case FORBIDDEN -> ResponseEntity.status(403).build();
+            case APPLICATION_NOT_FOUND -> ResponseEntity.notFound().build();
+        };
+    }
+
 }
