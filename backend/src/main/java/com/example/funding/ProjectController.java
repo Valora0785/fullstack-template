@@ -10,6 +10,8 @@ import com.example.funding.DraftRepository.ApplicationSummary;
 import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import com.example.funding.ProjectRepository.ProjectMember;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 public class ProjectController {
@@ -86,6 +88,39 @@ public class ProjectController {
                 projectId, currentUserId
         );
         return ResponseEntity.ok(applications);
+    }
+
+    public record AddProjectMemberRequest(Long userId) {}
+
+    @PostMapping("/api/projects/{projectId}/members")
+    public ResponseEntity<Void> addProjectMember(
+            @PathVariable("projectId") long projectId,
+            @RequestBody AddProjectMemberRequest body,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, currentUserId, "ADMIN")) {
+            return ResponseEntity.status(403).build();
+        }
+
+        Long memberUserId = body.userId();
+        if (memberUserId == null || memberUserId <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            int insertedRows = projectRepository.addProjectMember(projectId, memberUserId);
+            if (insertedRows == 0) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.status(201).build();
+        } catch (DuplicateKeyException e) {
+            return ResponseEntity.status(409).build();
+        }
     }
 
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/approve")

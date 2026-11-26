@@ -69,6 +69,17 @@ public class ProjectRepository {
         );
     }
 
+    public int addProjectMember(long projectId, long memberUserId) {
+        String sql = """
+            INSERT INTO project_member (project_id, user_id)
+            SELECT ?, u.id
+            FROM app_user u
+            WHERE u.id = ?
+            """;
+
+        return jdbcTemplate.update(sql, projectId, memberUserId);
+    }
+
     public boolean hasProjectRole(long projectId, long userId, String roleCode) {
         String sql = """
             SELECT COUNT(*)

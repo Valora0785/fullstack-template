@@ -836,3 +836,405 @@ GitHub 截图显示 PR 为 Open，目标为个人仓库的 master，来源为 fe
 ### 待办与交接
 
 学员提交日志续写，后续推送至 PR #9。
+
+## 本轮：日志续写已提交
+
+### 学员请求
+
+[终端结果节选] 9dddab7，1 file changed, 158 insertions(+)。
+
+### 状态
+
+本地提交完成，推送待执行。
+
+### 理解与决定
+
+沿用 PR #9 的来源分支补交日志。
+
+### 操作与工具结果
+
+学员亲手提交日志并回报结果。Codex 追加本轮记录。
+
+### 验证
+
+Git（学员回报）：9dddab7，变更一个文件。远端状态待确认。
+
+### 对外答复
+
+进展说明：日志补交已在本地提交。我把提交号记下来，接下来只推送到 PR #9。
+
+最终答复：
+
+**日志续写已提交。** `9dddab7` 只包含本次会话日志，新增 158 行。
+
+**下一小步只推送。** 在当前 IDEA 终端执行：
+
+```bash
+git push origin feat/admin-project-members
+```
+
+成功后贴出包含 `9dddab7` 的分支更新行。随后在 PR #9 的 **Commits** 确认这笔提交已到远端，再合并。
+
+### 待办与交接
+
+学员推送并回报分支更新行。
+
+## 本轮：接续管理员新增成员任务
+
+### 学员请求
+
+继续下一个任务
+
+### 状态
+
+已提出接口方案，待学员复述与确认。
+
+### 理解与决定
+
+接续已确认的管理员范围。先讨论将已有账号加入项目。PR #9 合并结果待确认。
+
+### 操作与工具结果
+
+Codex 只读核对 Git 状态及 backend/sql/003_project_member.sql。
+
+### 验证
+
+源码核对（Codex）：成员表以 project_id 和 user_id 为联合主键，分别关联项目与账号。新增接口和 HTTP 尚待实现及验证。
+
+### 对外答复
+
+进展说明：下一个任务是把已有账号加入项目。我先核对成员表的约束，再定接口的验收标准。
+
+最终答复：
+
+**下一个任务是「项目管理员把已有账号加入项目」。** 成员列表已通过验收。PR #9 的合并结果仍待确认，这轮可以先把新增成员的接口规则定下来。
+
+建议用 `POST /api/projects/{projectId}/members`，请求正文传入要加入的账号，例如 `{"userId":3}`。后端从登录会话取**操作者 ID**，确认他在目标项目有 `ADMIN` 角色，再把**目标账号 ID**和项目 ID 写入 `project_member`。
+
+第一版按这些结果验收：
+
+- 未登录返回 `401`，没有目标项目的管理员权限返回 `403`。
+- 目标账号不存在返回 `404`。
+- 加入成功返回 `201`，查库能看到一条成员关系。
+- 重复加入返回 `409`，数据库仍只有一条关系。现有联合主键 `(project_id, user_id)` 会保证这一点。
+
+先确认一个关键点：**如果管理员用户 1 把用户 3 加入项目 3，权限检查用哪个用户 ID，写入成员表又用哪个？**
+
+### 待办与交接
+
+学员复述操作者和目标账号的区别，再接续实现。
+
+## 本轮：区分操作者与新增成员
+
+### 学员请求
+
+[权限检查用哪个用户 ID] 用户1
+
+[写入成员表又用哪个] 用户3
+
+### 状态
+
+已确认理解，代码待学员编写。
+
+### 理解与决定
+
+学员确认权限检查使用会话中的用户 1，成员记录使用目标用户 3。
+
+### 操作与工具结果
+
+Codex 提供 ProjectRepository.addProjectMember 示例。数据库执行与代码保存待学员完成。
+
+### 验证
+
+复述（学员）：操作者和目标用户区分正确。编译、SQL 和 HTTP 尚待验证。
+
+### 对外答复
+
+进展说明：两个 ID 都答对了。我把复述记入会话日志，这一轮先写新增成员的数据库方法。
+
+最终答复（省略界面标注，本机路径已脱敏）：
+
+对，**权限检查用用户 1**。后端从登录会话取出这个 ID，检查他在项目 3 是否有 `ADMIN` 角色。
+
+对，**写入成员表用用户 3**。在这个例子里，写入的是 `(project_id, user_id) = (3, 3)`，两个 `3` 分别代表项目和账号。
+
+**这一轮只写数据库方法。** 在 IDEA 打开 [ProjectRepository.java](./backend/src/main/java/com/example/funding/ProjectRepository.java)，在 `findProjectMembers` 方法下方添加：
+
+```java
+public int addProjectMember(long projectId, long memberUserId) {
+    String sql = """
+            INSERT INTO project_member (project_id, user_id)
+            SELECT ?, u.id
+            FROM app_user u
+            WHERE u.id = ?
+            """;
+
+    return jdbcTemplate.update(sql, projectId, memberUserId);
+}
+```
+
+`SELECT` 找到目标账号时，`INSERT` 写入一行，方法返回 `1`。账号不存在时，查不到行，方法返回 `0`。如果成员关系已存在，联合主键会拒绝重复写入。下一轮再接登录校验和 HTTP 状态码。
+
+保存后，在 IDEA 的「本地 (2)」终端执行：
+
+```bash
+cd ./backend && ./mvnw compile
+```
+
+贴出 `BUILD SUCCESS`，或第一个 `[ERROR]` 附近的几行。编译通过后，我们再接接口并实测数据库行为。
+
+### 待办与交接
+
+学员填写方法并回报 Maven 编译结果。
+
+## 本轮：新增成员 Repository 编译通过
+
+### 学员请求
+
+[IDEA 截图，省略本机标识、凭据相关内容和无关历史] BUILD SUCCESS。
+
+### 状态
+
+数据库方法编译完成，POST 接口待接入。
+
+### 理解与决定
+
+沿用已确认的操作者与目标账号分离规则，继续接入项目级管理员校验。
+
+### 操作与工具结果
+
+学员编写 ProjectRepository.addProjectMember 并运行 ./mvnw compile。Codex 核对截图并提供 Controller 示例。
+
+### 验证
+
+编译（学员）：2026-11-26 15:09:42 +0800，编译 14 个源文件，BUILD SUCCESS。SQL 写入与 HTTP 结果待实测。截图也确认日志提交 9dddab7 已推送，PR #9 合并待确认。
+
+### 对外答复
+
+进展说明：新增成员的数据库方法已编译通过。我把结果记入本次日志，接下来只接 POST 接口。
+
+最终答复摘要：指导学员在 ProjectController 接入 POST 成员接口，将未登录、无权限、无效 ID、账号不存在、重复加入和新增成功映射到相应状态码。
+
+### 待办与交接
+
+学员添加 Controller 方法并反馈编译结果。
+
+## 本轮：新增成员 Controller 编译通过
+
+### 学员请求
+
+[IDEA 截图，省略本机标识和无关历史] BUILD SUCCESS。
+
+### 状态
+
+编译完成，启动与功能验收待完成。
+
+### 理解与决定
+
+先重启后端，再验收新增成员接口。
+
+### 操作与工具结果
+
+学员在 ProjectController 接入新增成员路由并运行 ./mvnw compile。Codex 核对截图。
+
+### 验证
+
+编译（学员）：2026-11-26 15:28:58 +0800，编译 14 个源文件，BUILD SUCCESS。新版启动、HTTP、SQL 待验证。
+
+### 对外答复
+
+进展说明：截图确认 POST 接口已编译通过。我把结果记入日志，下一步只重启后端。
+
+最终答复：
+
+**新增成员接口编译通过。** 你在 `ProjectController` 接上了 `POST /api/projects/{projectId}/members`，截图显示 `./mvnw compile` 返回 `BUILD SUCCESS`。
+
+**下一小步只重启后端。** 在 IDEA 顶部 `BackendApplication` 旁点绿色的**重启调试**按钮。等底部「调试 → 控制台」出现这次的新日志，贴出 `Tomcat started on port` 和 `Started BackendApplication` 两行。
+
+启动确认后，我们先用有效的 JSON 请求测未登录时是否返回 `401`，再验证管理员权限和数据库写入。
+
+### 待办与交接
+
+学员重启后端并回报启动日志。
+
+## 本轮：新增成员接口部署到本地后端
+
+### 学员请求
+
+[启动日志节选，省略进程号] Tomcat started on port 8080 (http) with context path '/'
+Started BackendApplication in 1.131 seconds
+
+### 状态
+
+启动完成，HTTP 验收待执行。
+
+### 理解与决定
+
+先使用有效 JSON 验证未登录拒绝。
+
+### 操作与工具结果
+
+学员重启应用并回报启动日志。Codex 核对并提供 curl 命令。
+
+### 验证
+
+启动（学员）：2026-11-26 20:44:43 +0800，端口 8080，启动耗时 1.131 秒。新增接口 HTTP 与 SQL 待验收。
+
+### 对外答复
+
+进展说明：启动日志确认后端已在 8080 启动。我把结果记入会话日志，下一步验收未登录请求。
+
+最终答复：
+
+**新版后端已启动。** Tomcat 正在监听 `8080`，`BackendApplication` 启动耗时 `1.131` 秒。
+
+**下一小步只测未登录新增成员。** 在 IDEA 的「本地 (2)」终端，看到 `%` 后执行：
+
+```bash
+curl -sS -w '\nHTTP %{http_code}\n' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{"userId":3}' \
+  http://127.0.0.1:8080/api/projects/3/members
+```
+
+`--data-binary` 会发送 POST。这里传有效的 JSON，并省略登录 Cookie，预期返回 **`HTTP 401`**，正文为空。贴实际状态码即可。
+
+### 待办与交接
+
+学员回报未登录 POST 的实际状态码。
+
+## 本轮：未登录新增成员返回 401
+
+### 学员请求
+
+**`HTTP 401`**
+
+### 状态
+
+未登录场景已通过，登录后的验收待完成。
+
+### 理解与决定
+
+沿用项目 3 管理员测试账号，重启后重新登录。
+
+### 操作与工具结果
+
+学员回报未登录 POST 请求状态。Codex 记录并提供登录步骤。
+
+### 验证
+
+HTTP（学员回报）：POST /api/projects/3/members 返回 401。数据库写入尚未验证。
+
+### 对外答复
+
+进展说明：未登录请求返回了预期的 `401`。我把结果记入本次日志，接下来确认重启后的测试账号会话。
+
+最终答复：
+
+**未登录新增成员验收通过。** 你实测 `POST /api/projects/3/members` 返回 `HTTP 401`。
+
+**下一小步只重新登录并确认身份。** 在 IDEA 的「本地 (2)」终端执行：
+
+```bash
+base_url=http://127.0.0.1:8080
+admin_cookie_file=$(mktemp -t funding-admin-add-member)
+
+python3 -c 'import getpass, json; print(json.dumps({"username": "student_demo", "password": getpass.getpass("测试账号密码: ")}))' |
+  curl -sS -o /dev/null -w '登录 HTTP %{http_code}\n' \
+    -c "$admin_cookie_file" \
+    -H 'Content-Type: application/json' \
+    --data-binary @- "$base_url/api/auth/login"
+
+curl -sS -w '\n身份 HTTP %{http_code}\n' \
+  -b "$admin_cookie_file" "$base_url/api/auth/me"
+```
+
+预期登录 `204`、身份查询 `200`，正文为 `{"userId":1}`。贴这三个结果即可。确认会话后，再用它测试向项目 1 新增成员是否返回 `403`。
+
+### 待办与交接
+
+确认新会话为用户 1，再测试跨项目拒绝。
+
+## 本轮：确认新增成员测试会话
+
+### 学员请求
+
+登录 HTTP 204
+{"userId":1}
+身份 HTTP 200
+
+### 状态
+
+会话身份已确认，跨项目验收待执行。
+
+### 理解与决定
+
+沿用用户 1 的会话，测试项目 1 的权限判断。
+
+### 操作与工具结果
+
+学员登录并查询身份。Codex 记录结果并提供跨项目 POST 命令。
+
+### 验证
+
+HTTP（学员回报）：登录 204，身份查询 200，用户 ID 为 1。跨项目响应待确认。
+
+### 对外答复
+
+进展说明：会话已确认是用户 1。我把结果记入日志，接下来验证项目 3 的管理员权限能否在项目 1 使用。
+
+最终答复：
+
+**测试会话已确认。** 登录返回 `204`，身份查询返回 `200`，`userId` 为 `1`。
+
+**下一小步只测跨项目新增成员。** 在刚才登录的 IDEA「本地 (2)」终端执行：
+
+```bash
+curl -sS -w '\nHTTP %{http_code}\n' \
+  -b "$admin_cookie_file" \
+  -H 'Content-Type: application/json' \
+  --data-binary '{"userId":3}' \
+  "$base_url/api/projects/1/members"
+```
+
+请求的目标是**把用户 3 加入项目 1**。会话中的用户 1 在项目 1 没有 `ADMIN` 角色，预期在写库前返回 **`HTTP 403`**，正文为空。贴实际状态码即可。
+
+### 待办与交接
+
+学员回报项目 1 的新增成员请求状态码。
+
+## 本轮：跨项目新增成员返回 403
+
+### 学员请求
+
+[IDEA 截图节选，省略本机标识和登录提示] HTTP 403。
+
+### 状态
+
+跨项目 HTTP 验收通过，本项目写入待验收。
+
+### 理解与决定
+
+继续用用户 1 验收项目 3，先查用户 3 的成员关系基线。
+
+### 操作与工具结果
+
+学员用已确认的会话请求 POST /api/projects/1/members，目标用户为 3。Codex 核对截图。
+
+### 验证
+
+HTTP（学员截图）：403，正文为空。本轮未查库。
+
+### 对外答复
+
+进展说明：截图确认跨项目请求返回 `403`。我把结果记入日志，接下来先查本项目新增前的成员关系。
+
+最终答复摘要：确认跨项目拒绝，指导在 MySQL 只读核对项目 3 与用户 3 的成员关系。
+
+## 补记｜新增项目成员验收
+
+- 新增前用 MySQL 查询 `project_member`，项目 3 与用户 3 的组合返回 `Empty set`。
+- 用户 1 使用同一登录会话向项目 3 添加用户 3，POST 返回 `201`。再次查库确认写入一行 `(project_id=3, user_id=3)`。
+- 重复发送同一请求返回 `409`。联合主键拒绝重复插入，Controller 捕获 `DuplicateKeyException` 并返回冲突状态。
+- 请求体传 `userId: 0` 返回 `400`。传不存在的账号 ID `999999` 返回 `404`。
+- GET 项目 3 的成员列表返回 `200`，包含新增成员 `draft_peer_demo`（`userId: 3`）。
