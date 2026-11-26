@@ -123,6 +123,41 @@ public class ProjectController {
         }
     }
 
+    public record AssignProjectRoleRequest(String roleCode) {}
+
+    @PostMapping("/api/projects/{projectId}/members/{memberUserId}/roles")
+    public ResponseEntity<Void> assignProjectRole(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("memberUserId") long memberUserId,
+            @RequestBody AssignProjectRoleRequest body,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, currentUserId, "ADMIN")) {
+            return ResponseEntity.status(403).build();
+        }
+
+        String roleCode = body.roleCode();
+        if (memberUserId <= 0
+                || (!"TEACHER".equals(roleCode) && !"FINANCE".equals(roleCode))) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            int insertedRows = projectRepository.assignProjectRole(projectId, memberUserId, roleCode);
+            if (insertedRows == 0) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.status(201).build();
+        } catch (DuplicateKeyException e) {
+            return ResponseEntity.status(409).build();
+        }
+    }
+
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/approve")
     public ResponseEntity<Void> approveApplication(
             @PathVariable("projectId") long projectId,
