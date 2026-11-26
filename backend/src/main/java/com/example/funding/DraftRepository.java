@@ -96,6 +96,29 @@ public class DraftRepository {
     }
 
     public int approvePendingApplication(long projectId, long applicationId, long teacherId) {
+        return approvePendingApplication(projectId, applicationId, teacherId, null);
+    }
+
+    public Optional<Long> findPendingRequestedFenForUpdate(
+            long projectId, long applicationId, long teacherId) {
+        String sql = """
+            SELECT a.requested_fen
+            FROM funding_application a
+            WHERE a.project_id = ?
+              AND a.id = ?
+              AND a.status = 'PENDING_L1'
+              AND a.applicant_id <> ?
+            FOR UPDATE
+            """;
+
+        return jdbcTemplate.query(
+                sql, (rs, rowNum) -> rs.getLong("requested_fen"),
+                projectId, applicationId, teacherId
+        ).stream().findFirst();
+    }
+
+    public int approvePendingApplication(
+            long projectId, long applicationId, long teacherId, Long approvedFen) {
         String sql = """
             UPDATE funding_application a
             JOIN project_role_assignment r
@@ -103,14 +126,17 @@ public class DraftRepository {
              AND r.user_id = ?
              AND r.role_code = 'TEACHER'
             SET a.status = 'APPROVED',
-                a.approved_fen = a.requested_fen
+                a.approved_fen = COALESCE(?, a.requested_fen)
             WHERE a.project_id = ?
               AND a.id = ?
               AND a.status = 'PENDING_L1'
               AND a.applicant_id <> ?
+              AND COALESCE(?, a.requested_fen) BETWEEN 1 AND a.requested_fen
             """;
 
-        return jdbcTemplate.update(sql, teacherId, projectId, applicationId, teacherId);
+        return jdbcTemplate.update(
+                sql, teacherId, approvedFen, projectId, applicationId, teacherId, approvedFen
+        );
     }
 
     public record ApplicationSummary(
