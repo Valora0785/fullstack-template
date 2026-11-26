@@ -117,6 +117,40 @@ public class DraftRepository {
         ).stream().findFirst();
     }
 
+    public Optional<Long> findApprovedFenForUpdate(long projectId, long applicationId) {
+        String sql = """
+        SELECT a.approved_fen
+        FROM funding_application a
+        WHERE a.project_id = ?
+          AND a.id = ?
+          AND a.status = 'APPROVED'
+        FOR UPDATE
+        """;
+
+        return jdbcTemplate.query(
+                sql, (rs, rowNum) -> rs.getLong("approved_fen"),
+                projectId, applicationId
+        ).stream().findFirst();
+    }
+
+    public int settleApprovedApplication(
+            long projectId, long applicationId, long financeUserId, long settledFen) {
+        String sql = """
+        UPDATE funding_application a
+        JOIN project_role_assignment r
+          ON r.project_id = a.project_id
+         AND r.user_id = ?
+         AND r.role_code = 'FINANCE'
+        SET a.status = 'SETTLED',
+            a.settled_fen = ?
+        WHERE a.project_id = ?
+          AND a.id = ?
+          AND a.status = 'APPROVED'
+        """;
+
+        return jdbcTemplate.update(sql, financeUserId, settledFen, projectId, applicationId);
+    }
+
     public int approvePendingApplication(
             long projectId, long applicationId, long teacherId, Long approvedFen) {
         String sql = """

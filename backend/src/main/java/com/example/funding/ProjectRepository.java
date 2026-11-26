@@ -154,4 +154,20 @@ public class ProjectRepository {
         return jdbcTemplate.update(sql, amountFen, amountFen, projectId, amountFen);
     }
 
+    public int settleFrozenBudget(long projectId, long approvedFen, long settledFen) {
+        long releaseFen = approvedFen - settledFen;
+        String sql = """
+        UPDATE research_project
+        SET frozen_fen = frozen_fen - ?,
+            used_fen = used_fen + ?,
+            available_fen = available_fen + ?
+        WHERE id = ?
+          AND frozen_fen >= ?
+        """;
+
+        return jdbcTemplate.update(
+                sql, approvedFen, settledFen, releaseFen, projectId, approvedFen
+        );
+    }
+
 }
