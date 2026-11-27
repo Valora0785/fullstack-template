@@ -1,6 +1,6 @@
 # 前端工程
 
-你在浏览器里看到的页面，以及点击、输入后的反应，都属于前端的工作。这里用来放前端工程，当前还没有初始化。项目流程和 Git 规范先读[根 README](../README.md)。
+你在浏览器里看到的页面，以及点击、输入后的反应，都属于前端的工作。本目录是科研经费管理系统的前端工程，已完成 Vue 3 + Vite 初始化，目前可运行 Vue 示例页。
 
 ## 先选一套能够解释的方案
 
@@ -43,3 +43,13 @@ JavaScript 和 TypeScript 都可以。TypeScript 额外提供类型检查能力�
 - [Vue 入门与工程创建](https://cn.vuejs.org/guide/quick-start.html)
 - [Vue 的 TypeScript 说明](https://cn.vuejs.org/guide/typescript/overview.html)
 - [Vite 官方说明](https://vite.dev/guide/)
+
+## 本地运行
+
+前端使用 Vue 3、JavaScript 和 Vite 8.4.0。已验证的环境为 Node.js 24.22.0 和 npm 11.19.1。
+
+在仓库的 `frontend/` 目录执行：
+
+- `npm install` 安装依赖。
+- `npm run dev` 启动开发服务器。在浏览器打开终端 `Local:` 显示的地址，确认 Vue 示例页正常显示。
+- `npm run build` 生成生产构建，产物位于 `dist/`。
