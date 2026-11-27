@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import com.example.funding.ProjectRepository.ProjectMember;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.RequestBody;
+import com.example.funding.DraftRepository.OwnApplication;
 
 @RestController
 public class ProjectController {
@@ -64,6 +65,25 @@ public class ProjectController {
         }
 
         return ResponseEntity.ok(projectRepository.findProjectMembers(projectId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/applications/me")
+    public ResponseEntity<List<OwnApplication>> getOwnApplications(
+            @PathVariable("projectId") long projectId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!draftRepository.isProjectMember(projectId, currentUserId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(
+                draftRepository.findOwnApplications(projectId, currentUserId)
+        );
     }
 
     @GetMapping("/api/projects/{projectId}/applications/pending")
