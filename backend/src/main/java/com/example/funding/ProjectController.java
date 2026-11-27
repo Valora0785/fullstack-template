@@ -14,6 +14,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.example.funding.DraftRepository.OwnApplication;
 import com.example.funding.DraftRepository.PendingSettlement;
+import com.example.funding.ProjectRepository.ProjectSummary;
 
 @RestController
 public class ProjectController {
@@ -29,6 +30,23 @@ public class ProjectController {
         this.draftRepository = draftRepository;
         this.draftService = draftService;
     }
+
+    @GetMapping("/api/projects/me")
+    public ResponseEntity<List<ProjectSummary>> getMyProjects(
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId =
+                session == null ? null : (Long) session.getAttribute("userId");
+
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        return ResponseEntity.ok(
+                projectRepository.findProjectsForMember(currentUserId)
+        );
+    }
+
     @GetMapping("/api/projects/{projectId}/budget")
     public ResponseEntity<ProjectBudget> getBudget(
             @PathVariable("projectId") long projectId,
