@@ -61,7 +61,12 @@ public class ProjectController {
             return ResponseEntity.status(401).build();
         }
 
-        if (!projectRepository.hasProjectRole(projectId, currentUserId, "ADMIN")) {
+        boolean canReadMembers =
+                projectRepository.hasProjectRole(projectId, currentUserId, "ADMIN")
+                        || projectRepository.hasProjectRole(projectId, currentUserId, "TEACHER")
+                        || projectRepository.hasProjectRole(projectId, currentUserId, "FINANCE");
+
+        if (!canReadMembers) {
             return ResponseEntity.status(403).build();
         }
 
