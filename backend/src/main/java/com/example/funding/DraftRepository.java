@@ -233,6 +233,38 @@ public class DraftRepository {
         );
     }
 
+    public record OwnApplication(
+            long applicationId, String purpose, long requestedFen,
+            Long approvedFen, Long settledFen, String status,
+            String rejectionReason, String cancellationReason
+    ) {}
+
+    public List<OwnApplication> findOwnApplications(long projectId, long currentUserId) {
+        String sql = """
+            SELECT id, purpose, requested_fen, approved_fen, settled_fen,
+                   status, rejection_reason, cancellation_reason
+            FROM funding_application
+            WHERE project_id = ?
+              AND applicant_id = ?
+            ORDER BY id DESC
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new OwnApplication(
+                        rs.getLong("id"),
+                        rs.getString("purpose"),
+                        rs.getLong("requested_fen"),
+                        rs.getObject("approved_fen", Long.class),
+                        rs.getObject("settled_fen", Long.class),
+                        rs.getString("status"),
+                        rs.getString("rejection_reason"),
+                        rs.getString("cancellation_reason")
+                ),
+                projectId, currentUserId
+        );
+    }
+
     public record ApplicationSummary(
             long applicationId, long applicantId, String purpose,
             long requestedFen, String status
