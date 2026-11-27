@@ -193,6 +193,37 @@ public class ProjectController {
         };
     }
 
+    public record RejectApplicationRequest(String reason) {}
+
+    @PostMapping("/api/projects/{projectId}/applications/{applicationId}/reject")
+    public ResponseEntity<Void> rejectApplication(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("applicationId") long applicationId,
+            @RequestBody(required = false) RejectApplicationRequest body,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+
+        DraftService.RejectionResult result;
+        try {
+            result = draftService.rejectApplication(
+                    projectId, applicationId, currentUserId, body == null ? null : body.reason()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return switch (result) {
+            case REJECTED -> ResponseEntity.noContent().build();
+            case FORBIDDEN -> ResponseEntity.status(403).build();
+            case APPLICATION_NOT_FOUND -> ResponseEntity.notFound().build();
+        };
+    }
+
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/settle")
     public ResponseEntity<Void> settleApplication(
             @PathVariable("projectId") long projectId,
