@@ -49,6 +49,26 @@ public class ProjectRepository {
     }
 
     public record ProjectMember(long userId, String username) {}
+    public record ProjectSummary(long projectId, String name) {}
+
+    public List<ProjectSummary> findProjectsForMember(long currentUserId) {
+        String sql = """
+            SELECT p.id, p.name
+            FROM research_project p
+            JOIN project_member m ON m.project_id = p.id
+            WHERE m.user_id = ?
+            ORDER BY p.id
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new ProjectSummary(
+                        rs.getLong("id"),
+                        rs.getString("name")
+                ),
+                currentUserId
+        );
+    }
 
     public List<ProjectMember> findProjectMembers(long projectId) {
         String sql = """
