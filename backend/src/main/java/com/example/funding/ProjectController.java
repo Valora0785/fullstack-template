@@ -13,6 +13,7 @@ import com.example.funding.ProjectRepository.ProjectMember;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.example.funding.DraftRepository.OwnApplication;
+import com.example.funding.DraftRepository.PendingSettlement;
 
 @RestController
 public class ProjectController {
@@ -108,6 +109,25 @@ public class ProjectController {
                 projectId, currentUserId
         );
         return ResponseEntity.ok(applications);
+    }
+
+    @GetMapping("/api/projects/{projectId}/applications/pending-settlement")
+    public ResponseEntity<List<PendingSettlement>> getPendingSettlements(
+            @PathVariable("projectId") long projectId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, currentUserId, "FINANCE")) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(
+                draftRepository.findPendingSettlementsByProject(projectId)
+        );
     }
 
     public record AddProjectMemberRequest(Long userId) {}

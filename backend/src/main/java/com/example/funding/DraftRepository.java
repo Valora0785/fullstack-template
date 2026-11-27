@@ -265,6 +265,33 @@ public class DraftRepository {
         );
     }
 
+    public record PendingSettlement(
+            long applicationId, long applicantId, String purpose,
+            long requestedFen, long approvedFen
+    ) {}
+
+    public List<PendingSettlement> findPendingSettlementsByProject(long projectId) {
+        String sql = """
+            SELECT id, applicant_id, purpose, requested_fen, approved_fen
+            FROM funding_application
+            WHERE project_id = ?
+              AND status = 'APPROVED'
+            ORDER BY id
+            """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new PendingSettlement(
+                        rs.getLong("id"),
+                        rs.getLong("applicant_id"),
+                        rs.getString("purpose"),
+                        rs.getLong("requested_fen"),
+                        rs.getLong("approved_fen")
+                ),
+                projectId
+        );
+    }
+
     public record ApplicationSummary(
             long applicationId, long applicantId, String purpose,
             long requestedFen, String status
