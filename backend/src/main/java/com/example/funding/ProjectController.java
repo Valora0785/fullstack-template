@@ -224,6 +224,36 @@ public class ProjectController {
         };
     }
 
+    public record CancelApplicationRequest(String reason) {}
+
+    @PostMapping("/api/projects/{projectId}/applications/{applicationId}/cancel")
+    public ResponseEntity<Void> cancelOwnApplication(
+            @PathVariable("projectId") long projectId,
+            @PathVariable("applicationId") long applicationId,
+            @RequestBody(required = false) CancelApplicationRequest body,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        try {
+            String reason = body == null ? null : body.reason();
+            var result = draftService.cancelOwnApplication(
+                    projectId, applicationId, currentUserId, reason
+            );
+
+            return switch (result) {
+                case CANCELED -> ResponseEntity.noContent().build();
+                case FORBIDDEN -> ResponseEntity.status(403).build();
+                case APPLICATION_NOT_FOUND -> ResponseEntity.notFound().build();
+            };
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @PostMapping("/api/projects/{projectId}/applications/{applicationId}/settle")
     public ResponseEntity<Void> settleApplication(
             @PathVariable("projectId") long projectId,

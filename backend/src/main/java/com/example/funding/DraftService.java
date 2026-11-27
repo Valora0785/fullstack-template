@@ -201,6 +201,53 @@ public class DraftService {
         APPLICATION_NOT_FOUND
     }
 
+    public enum CancellationResult {
+        CANCELED,
+        FORBIDDEN,
+        APPLICATION_NOT_FOUND
+    }
+
+    @Transactional
+    public CancellationResult cancelOwnApplication(
+            long projectId, long applicationId, long applicantId, String reason) {
+        if (projectId <= 0 || applicationId <= 0 || applicantId <= 0) {
+            throw new IllegalArgumentException("项目、申请和申请人编号必须为正数");
+        }
+
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("取消原因不能为空");
+        }
+
+        String normalizedReason = reason.strip();
+        if (normalizedReason.codePointCount(0, normalizedReason.length()) > 200) {
+            throw new IllegalArgumentException("取消原因不能超过 200 字符");
+        }
+
+        if (!draftRepository.isProjectMember(projectId, applicantId)) {
+            return CancellationResult.FORBIDDEN;
+        }
+
+        var remainingFrozenFen = draftRepository.findOwnCancelableFrozenFenForUpdate(
+                projectId, applicationId, applicantId
+        );
+        if (remainingFrozenFen.isEmpty()) {
+            return CancellationResult.APPLICATION_NOT_FOUND;
+        }
+
+        int updatedRows = draftRepository.cancelOwnApplication(
+                projectId, applicationId, applicantId, normalizedReason
+        );
+        if (updatedRows == 0) {
+            return CancellationResult.APPLICATION_NOT_FOUND;
+        }
+
+        if (projectRepository.releaseFrozenBudget(projectId, remainingFrozenFen.get()) != 1) {
+            throw new IllegalStateException("退回冻结预算失败");
+        }
+
+        return CancellationResult.CANCELED;
+    }
+
     @Transactional
     public SettlementResult settleApplication(
             long projectId, long applicationId, long financeUserId, long settledFen) {
