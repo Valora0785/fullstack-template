@@ -73,6 +73,28 @@ public class ProjectController {
         return ResponseEntity.ok(projectRepository.findProjectMembers(projectId));
     }
 
+    @GetMapping("/api/projects/{projectId}/applications")
+    public ResponseEntity<List<ApplicationSummary>> getSubmittedApplications(
+            @PathVariable("projectId") long projectId,
+            HttpServletRequest request) {
+        var session = request.getSession(false);
+        Long currentUserId = session == null ? null : (Long) session.getAttribute("userId");
+        if (currentUserId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        boolean canReadApplications =
+                projectRepository.hasProjectRole(projectId, currentUserId, "TEACHER")
+                        || projectRepository.hasProjectRole(projectId, currentUserId, "FINANCE");
+        if (!canReadApplications) {
+            return ResponseEntity.status(403).build();
+        }
+
+        return ResponseEntity.ok(
+                draftRepository.findSubmittedApplicationsByProject(projectId)
+        );
+    }
+
     @GetMapping("/api/projects/{projectId}/applications/me")
     public ResponseEntity<List<OwnApplication>> getOwnApplications(
             @PathVariable("projectId") long projectId,
