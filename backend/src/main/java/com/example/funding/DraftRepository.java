@@ -173,6 +173,27 @@ public class DraftRepository {
         );
     }
 
+    public int rejectPendingApplication(
+            long projectId, long applicationId, long teacherId, String reason) {
+        String sql = """
+        UPDATE funding_application a
+        JOIN project_role_assignment r
+          ON r.project_id = a.project_id
+         AND r.user_id = ?
+         AND r.role_code = 'TEACHER'
+        SET a.status = 'REJECTED',
+            a.rejection_reason = ?
+        WHERE a.project_id = ?
+          AND a.id = ?
+          AND a.status = 'PENDING_L1'
+          AND a.applicant_id <> ?
+        """;
+
+        return jdbcTemplate.update(
+                sql, teacherId, reason, projectId, applicationId, teacherId
+        );
+    }
+
     public record ApplicationSummary(
             long applicationId, long applicantId, String purpose,
             long requestedFen, String status

@@ -148,6 +148,53 @@ public class DraftService {
         return ApprovalResult.APPROVED;
     }
 
+    public enum RejectionResult {
+        REJECTED,
+        FORBIDDEN,
+        APPLICATION_NOT_FOUND
+    }
+
+    @Transactional
+    public RejectionResult rejectApplication(
+            long projectId, long applicationId, long teacherId, String reason) {
+        if (projectId <= 0 || applicationId <= 0 || teacherId <= 0) {
+            throw new IllegalArgumentException("项目、申请和教师编号必须为正数");
+        }
+
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("拒绝原因不能为空");
+        }
+
+        String normalizedReason = reason.strip();
+        if (normalizedReason.codePointCount(0, normalizedReason.length()) > 200) {
+            throw new IllegalArgumentException("拒绝原因不能超过 200 字符");
+        }
+
+        if (!projectRepository.hasProjectRole(projectId, teacherId, "TEACHER")) {
+            return RejectionResult.FORBIDDEN;
+        }
+
+        var requestedAmount = draftRepository.findPendingRequestedFenForUpdate(
+                projectId, applicationId, teacherId
+        );
+        if (requestedAmount.isEmpty()) {
+            return RejectionResult.APPLICATION_NOT_FOUND;
+        }
+
+        int updatedRows = draftRepository.rejectPendingApplication(
+                projectId, applicationId, teacherId, normalizedReason
+        );
+        if (updatedRows == 0) {
+            return RejectionResult.APPLICATION_NOT_FOUND;
+        }
+
+        if (projectRepository.releaseFrozenBudget(projectId, requestedAmount.get()) != 1) {
+            throw new IllegalStateException("退回冻结预算失败");
+        }
+
+        return RejectionResult.REJECTED;
+    }
+
     public enum SettlementResult {
         SETTLED,
         FORBIDDEN,
