@@ -133,6 +133,45 @@ public class DraftRepository {
         ).stream().findFirst();
     }
 
+    public Optional<Long> findOwnCancelableFrozenFenForUpdate(
+            long projectId, long applicationId, long applicantId) {
+        String sql = """
+        SELECT CASE a.status
+                   WHEN 'PENDING_L1' THEN a.requested_fen
+                   WHEN 'APPROVED' THEN a.approved_fen
+               END AS remaining_frozen_fen
+        FROM funding_application a
+        WHERE a.project_id = ?
+          AND a.id = ?
+          AND a.applicant_id = ?
+          AND a.status IN ('PENDING_L1', 'APPROVED')
+        FOR UPDATE
+        """;
+
+        return jdbcTemplate.query(
+                sql, (rs, rowNum) -> rs.getLong("remaining_frozen_fen"),
+                projectId, applicationId, applicantId
+        ).stream().findFirst();
+    }
+
+    public int cancelOwnApplication(
+            long projectId, long applicationId, long applicantId, String reason) {
+        String sql = """
+        UPDATE funding_application a
+        JOIN project_member m
+          ON m.project_id = a.project_id
+         AND m.user_id = a.applicant_id
+        SET a.status = 'CANCELED',
+            a.cancellation_reason = ?
+        WHERE a.project_id = ?
+          AND a.id = ?
+          AND a.applicant_id = ?
+          AND a.status IN ('PENDING_L1', 'APPROVED')
+        """;
+
+        return jdbcTemplate.update(sql, reason, projectId, applicationId, applicantId);
+    }
+
     public int settleApprovedApplication(
             long projectId, long applicationId, long financeUserId, long settledFen) {
         String sql = """
